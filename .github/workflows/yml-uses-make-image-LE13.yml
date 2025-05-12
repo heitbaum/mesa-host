@@ -95,9 +95,9 @@ concurrency:
 
 jobs:
   build_image:
-    runs-on: [self-hosted, nightly]
+    runs-on: ubuntu-latest
 
-    timeout-minutes: 720
+    timeout-minutes: 360
 
     steps:
       - uses: actions/checkout@v4
@@ -131,7 +131,7 @@ jobs:
         run: |
           cd LibreELEC.tv
           # create links that will be used from within the docker containers
-          [ ! -h sources ] && ln -s /sources .
+          #[ ! -h sources ] && ln -s /sources .
 
       - name: Prepare the LibreELEC.tv directory - do not leave files behind
         if: inputs.ephemeral == 'ephemeral'
@@ -146,9 +146,9 @@ jobs:
         run: |
           cd LibreELEC.tv
           # create links that will be used from within the docker containers
-          [ ! -h target ] && ln -s /target .
+          #[ ! -h target ] && ln -s /target .
           # set the build_dir=/build-root - for NON ephemeral builds
-          echo "build_dir=/build-root" >> $GITHUB_ENV
+          #echo "build_dir=/build-root" >> $GITHUB_ENV
 
       - name: Display environment
         if: inputs.debug == 'debug'
@@ -167,16 +167,13 @@ jobs:
       - name: Clean target_build_dir in /build-root - make clean DEVICE
         if: inputs.clean_le == 'clean_le'
         run: |
-          rm -rf ${{ env.BASEDIR }}/build-root/${{ env.TARGETBUILDDIR }}/.stamps
-          rm -rf ${{ env.BASEDIR }}/build-root/${{ env.TARGETBUILDDIR }}/*
+          #rm -rf ${{ env.BASEDIR }}/build-root/${{ env.TARGETBUILDDIR }}/.stamps
+          #rm -rf ${{ env.BASEDIR }}/build-root/${{ env.TARGETBUILDDIR }}/*
 
       - name: Build LE in docker container
         run: |
           cd LibreELEC.tv
-          docker run --rm -v ${{ env.BASEDIR }}/sources:/sources \
-                          -v ${{ env.BASEDIR }}/target:/target \
-                          -v ${{ env.BASEDIR }}/build-root:/build-root \
-                          -v `pwd`:/build \
+          docker run --rm -v `pwd`:/build \
                           -w /build -i \
                           -e PROJECT=${{ env.PROJECT }} \
                           -e ARCH=${{ env.ARCH }} \
@@ -236,7 +233,7 @@ jobs:
       - name: List files in target
         run: |
           cd LibreELEC.tv
-          ls -lah target/
+          ls -lah sources/mesa-host/
 
       - name: Upload OFFICIAL Release image
         if: (inputs.buildperiodic == 'official') && (inputs.upload == 'upload')

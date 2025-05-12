@@ -12,12 +12,12 @@ on:
           - official
       gitref_to_build:
         description: "gitref tag or hash to build"
-        default: master
+        default: mesa-host
         required: true
         type: string
       target:
         description: "targets to build"
-        default: all
+        default: Generic.x86_64
         required: true
         type: choice
         options:
@@ -37,25 +37,70 @@ jobs:
     name: Checkout LibreELEC/LibreELEC.tv and check latest commit
     outputs:
       should_run: ${{ steps.should_run.outputs.should_run }}
+      hash: ${{ steps.latest_commit.outputs.hash }}
+      mesa: ${{ steps.tool_version.outputs.mesa }}
+      osver: ${{ steps.tool_version.outputs.osver }}
+      release_exists: ${{ steps.check_release.outputs.release_exists }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: master
+          fetch-depth: 0
+          path: "mesa-host"
+      - uses: actions/checkout@v4
+        with:
+          ref: mesa-host
           fetch-depth: 2
           repository: "${{ github.repository_owner }}/LibreELEC.tv"
           path: "LibreELEC.tv"
-      - name: print latest_commit of checked out LibreELEC/LibreELEC.tv
+      - id: latest_commit
+        name: print latest_commit of checked out LibreELEC/LibreELEC.tv
         run: |
           cd LibreELEC.tv
-          git rev-parse HEAD
+          hash=$(git rev-parse HEAD)
+          echo "hash=${hash}" >> $GITHUB_OUTPUT
+          echo ${hash}
+      - id: tool_version
+        name: get versions of LibreELEC and mesa
+        run: |
+          cd LibreELEC.tv
+          . config/options
+          echo "mesa=$(get_pkg_version mesa)" >> $GITHUB_OUTPUT
+          echo "osver=${OS_VERSION}" >> $GITHUB_OUTPUT
+      - id: check_release
+        name: Check for Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd mesa-host
+          RELEASE_TAG=${{ steps.tool_version.outputs.osver }}-${{ steps.tool_version.outputs.mesa }}
+          if [ $(git tag -l "${RELEASE_TAG}") ]; then
+            echo "Tag ${RELEASE_TAG} exists"
+            set +e
+            gh release view $RELEASE_TAG
+            if [[ "$(gh release view $RELEASE_TAG 2>&1)" == "release not found" ]]; then
+              echo "Release ${RELEASE_TAG} not found."
+              echo "release_exists=false" >> $GITHUB_OUTPUT
+            else
+              echo "Release ${RELEASE_TAG} found."
+              echo "release_exists=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Tag ${RELEASE_TAG} does not exist"
+            echo "release_exists=false" >> $GITHUB_OUTPUT
+          fi
       - id: should_run
         continue-on-error: true
         name: check latest commit is less than a day
-        if: ${{ github.event_name == 'schedule' }}
+        #if: ${{ github.event_name == 'schedule' }}
         run: |
-          cd LibreELEC.tv
-          test -z "$(git rev-list --after='24 hours' $(git rev-parse HEAD))" && echo "should_run=false" >> $GITHUB_OUTPUT
-          exit 0
+          #echo rudi ${{ steps.latest_commit.outputs.hash }}
+          #echo rudi ${{ steps.tool_version.outputs.osver }}
+          #echo rudi ${{ steps.tool_version.outputs.mesa }}
+          #cd LibreELEC.tv
+          #git rev-list --after='24 hours' ${{ steps.latest_commit.outputs.hash }}
+          #echo git rev-list --after='24 hours' ${{ steps.latest_commit.outputs.hash }}
+          #test -z "$(git rev-list --after='24 hours' ${{ steps.latest_commit.outputs.hash }})" && echo "should_run=false" >> $GITHUB_OUTPUT
+          #exit 0
 
   # Amlogic
   AMLGX_aarch64-13_0:
@@ -71,8 +116,8 @@ jobs:
       debug: debug
       ephemeral: ephemeral
       upload: upload
-      buildcmd: "scripts/build mesa:host"
-      gitref: ${{ github.event.inputs.gitref_to_build || 'master' }}
+      buildcmd: "scripts/build_mt 1mesa:host"
+      gitref: ${{ github.event.inputs.gitref_to_build || 'mesa-host' }}
       group: AMLGX_aarch64-13_0
       project: Amlogic
       arch: aarch64
@@ -98,8 +143,8 @@ jobs:
       debug: debug
       ephemeral: ephemeral
       upload: upload
-      buildcmd: "scripts/build mesa:host"
-      gitref: ${{ github.event.inputs.gitref_to_build || 'master' }}
+      buildcmd: "scripts/build_mt 1mesa:host"
+      gitref: ${{ github.event.inputs.gitref_to_build || 'mesa-host' }}
       group: Generic_x86_64-13_0
       project: Generic
       arch: x86_64
