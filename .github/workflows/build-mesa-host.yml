@@ -127,6 +127,7 @@ jobs:
         && ( github.event.inputs.target == 'all' || github.event.inputs.target == 'aarch64' || github.event_name == 'schedule' )
     uses: ./.github/workflows/yml-build-mesa-host.yml
     with:
+      runner: ubuntu-24.04-arm
       debug: debug
       ephemeral: ephemeral
       upload_url: ${{ needs.check_build_tools.outputs.upload_url }}
@@ -152,6 +153,7 @@ jobs:
         && ( github.event.inputs.target == 'all' || github.event.inputs.target == 'x86_64' || github.event_name == 'schedule' )
     uses: ./.github/workflows/yml-build-mesa-host.yml
     with:
+      runner: ubuntu-latest
       debug: debug
       ephemeral: ephemeral
       upload_url: ${{ needs.check_build_tools.outputs.upload_url }}
