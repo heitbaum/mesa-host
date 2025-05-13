@@ -135,7 +135,7 @@ jobs:
     if: |
       ( needs.check_build_tools.outputs.should_run != 'false' )
         && ( github.event.inputs.target == 'all' || github.event.inputs.target == 'aarch64' || github.event_name == 'schedule' )
-    uses: ./.github/workflows/yml-uses-make-image-LE13.yml
+    uses: ./.github/workflows/yml-build-mesa-host.yml
     with:
       clean_le: no_clean_le
       debug: debug
@@ -165,7 +165,7 @@ jobs:
     if: |
       ( needs.check_build_tools.outputs.should_run != 'false' )
         && ( github.event.inputs.target == 'all' || github.event.inputs.target == 'x86_64' || github.event_name == 'schedule' )
-    uses: ./.github/workflows/yml-uses-make-image-LE13.yml
+    uses: ./.github/workflows/yml-build-mesa-host.yml
     with:
       clean_le: no_clean_le
       debug: debug
