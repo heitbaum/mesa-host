@@ -16,6 +16,9 @@ on:
           - all
           - aarch64
           - x86_64
+  schedule:
+    # The times are specified in UTC
+    - cron: "15 13 * * *"
 
 env:
   debug: debug
