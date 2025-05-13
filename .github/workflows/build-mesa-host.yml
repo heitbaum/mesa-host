@@ -1,4 +1,4 @@
-name: build-LE13
+name: build-mesa-host
 on:
   workflow_dispatch:
     inputs:
@@ -17,13 +17,13 @@ on:
         type: string
       target:
         description: "targets to build"
-        default: Generic.x86_64
+        default: x86_64
         required: true
         type: choice
         options:
           - all
-          - AMLGX.aarch64
-          - Generic.x86_64
+          - aarch64
+          - x86_64
 
 env:
   clean_le: no_clean_le
@@ -32,8 +32,10 @@ env:
   upload: upload
 
 jobs:
-  check_date:
+  check_build_tools:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     name: Checkout LibreELEC/LibreELEC.tv and check latest commit
     outputs:
       should_run: ${{ steps.should_run.outputs.should_run }}
@@ -41,6 +43,8 @@ jobs:
       mesa: ${{ steps.tool_version.outputs.mesa }}
       osver: ${{ steps.tool_version.outputs.osver }}
       release_exists: ${{ steps.check_release.outputs.release_exists }}
+      release_doesnt_exists: ${{ steps.check_release.outputs.release_doesnt_exists }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,10 +63,13 @@ jobs:
           hash=$(git rev-parse HEAD)
           echo "hash=${hash}" >> $GITHUB_OUTPUT
           echo ${hash}
+          echo "mesa:host tools build - ${hash}" > gh-build-log.txt
+          echo "=====================" >> gh-build-log.txt
       - id: tool_version
         name: get versions of LibreELEC and mesa
         run: |
           cd LibreELEC.tv
+          tools/viewplan mesa:host >> gh-build-log.txt
           . config/options
           echo "mesa=$(get_pkg_version mesa)" >> $GITHUB_OUTPUT
           echo "osver=${OS_VERSION}" >> $GITHUB_OUTPUT
@@ -80,45 +87,64 @@ jobs:
             if [[ "$(gh release view $RELEASE_TAG 2>&1)" == "release not found" ]]; then
               echo "Release ${RELEASE_TAG} not found."
               echo "release_exists=false" >> $GITHUB_OUTPUT
+              echo "release_doesnt_exists=true" >> $GITHUB_OUTPUT
             else
               echo "Release ${RELEASE_TAG} found."
               echo "release_exists=true" >> $GITHUB_OUTPUT
+              echo "release_doesnt_exists=false" >> $GITHUB_OUTPUT
             fi
           else
             echo "Tag ${RELEASE_TAG} does not exist"
             echo "release_exists=false" >> $GITHUB_OUTPUT
+            echo "release_doesnt_exists=true" >> $GITHUB_OUTPUT
           fi
       - id: should_run
-        continue-on-error: true
-        name: check latest commit is less than a day
-        #if: ${{ github.event_name == 'schedule' }}
+        name: check if the release doesnt exist so as to create the release
         run: |
-          #echo rudi ${{ steps.latest_commit.outputs.hash }}
-          #echo rudi ${{ steps.tool_version.outputs.osver }}
-          #echo rudi ${{ steps.tool_version.outputs.mesa }}
-          #cd LibreELEC.tv
-          #git rev-list --after='24 hours' ${{ steps.latest_commit.outputs.hash }}
-          #echo git rev-list --after='24 hours' ${{ steps.latest_commit.outputs.hash }}
-          #test -z "$(git rev-list --after='24 hours' ${{ steps.latest_commit.outputs.hash }})" && echo "should_run=false" >> $GITHUB_OUTPUT
-          #exit 0
+          echo "should_run=${{ steps.check_run.outputs.release_doesnt_exists }}" >> $GITHUB_OUTPUT
+      - id: create_release
+        name: release
+        if: ( steps.check_release.outputs.release_exists == 'false' )
+        uses: actions/create-release@v1
+        with:
+          draft: false
+          prerelease: true
+          release_name: "mesa host tools for LibreELEC-${{ steps.tool_version.outputs.osver }} with mesa-${{ steps.tool_version.outputs.mesa }}"
+          tag_name: dummy-${{ steps.tool_version.outputs.osver }}-${{ steps.tool_version.outputs.mesa }}
+          body_path: mesa-host/CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: upload hash details artifact
+        if: ( steps.check_release.outputs.release_exists == 'false' )
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: LibreELEC.tv/gh-build-log.txt
+          asset_name: build-log.txt
+          asset_content_type: text/plain
 
-  # Amlogic
-  AMLGX_aarch64-13_0:
-    name: "AMLGX.aarch64 13.0"
-    # Only run if there has been a commit in the last 24 hours
-    needs: check_date
+  # aarch64 (use Amlogic to do the build of mesa)
+  aarch64:
+    permissions:
+      contents: write
+    name: "aarch64"
+    # Only run if there is not a release
+    needs: check_build_tools
     if: |
-      ( needs.check_date.outputs.should_run != 'false' )
-        && ( github.event.inputs.target == 'all' || github.event.inputs.target == 'AMLGX.aarch64' || github.event_name == 'schedule' )
+      ( needs.check_build_tools.outputs.should_run != 'false' )
+        && ( github.event.inputs.target == 'all' || github.event.inputs.target == 'aarch64' || github.event_name == 'schedule' )
     uses: ./.github/workflows/yml-uses-make-image-LE13.yml
     with:
       clean_le: no_clean_le
       debug: debug
       ephemeral: ephemeral
       upload: upload
+      upload_url: ${{ needs.check_build_tools.outputs.upload_url }}
       buildcmd: "scripts/build_mt 1mesa:host"
       gitref: ${{ github.event.inputs.gitref_to_build || 'mesa-host' }}
-      group: AMLGX_aarch64-13_0
+      group: aarch64-mesa
       project: Amlogic
       arch: aarch64
       device: AMLGX
@@ -129,23 +155,26 @@ jobs:
       file_extension: img.gz,tar
     secrets: inherit
 
-  # Generic
-  Generic_x86_64-13_0:
-    name: "Generic.x86_64 13.0"
+  # x86_64 (use Amlogic to do the build of mesa)
+  x86_64:
+    permissions:
+      contents: write
+    name: "x86_64"
     # Only run if there has been a commit in the last 24 hours
-    needs: check_date
+    needs: check_build_tools
     if: |
-      ( needs.check_date.outputs.should_run != 'false' )
-        && ( github.event.inputs.target == 'all' || github.event.inputs.target == 'Generic.x86_64' || github.event_name == 'schedule' )
+      ( needs.check_build_tools.outputs.should_run != 'false' )
+        && ( github.event.inputs.target == 'all' || github.event.inputs.target == 'x86_64' || github.event_name == 'schedule' )
     uses: ./.github/workflows/yml-uses-make-image-LE13.yml
     with:
       clean_le: no_clean_le
       debug: debug
       ephemeral: ephemeral
       upload: upload
+      upload_url: ${{ needs.check_build_tools.outputs.upload_url }}
       buildcmd: "scripts/build_mt 1mesa:host"
       gitref: ${{ github.event.inputs.gitref_to_build || 'mesa-host' }}
-      group: Generic_x86_64-13_0
+      group: x86_64-mesa
       project: Generic
       arch: x86_64
       device: Generic
