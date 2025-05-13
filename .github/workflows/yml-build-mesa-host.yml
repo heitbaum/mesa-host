@@ -1,4 +1,4 @@
-name: yml-uses-make-image-LE13
+name: yml-build-mesa-host
 on:
   workflow_call:
     inputs:
@@ -57,8 +57,11 @@ on:
         type: string
       version:
         description: "version code used in TARGETBUILDDIR"
-        default: ""
-        required: false
+        required: true
+        type: string
+      mesa:
+        description: "mesa version we are building"
+        required: true
         type: string
 
 env:
@@ -69,6 +72,7 @@ env:
   DEVICE: ${{ inputs.device }}
   TARGETBUILDDIR: ${{ inputs.targetbuilddir }}
   LE_DISTRO_VERSION: ${{ inputs.version }}
+  MESA_VERSION: ${{ inputs.mesa }}
 
 concurrency:
   group: ${{ inputs.group }}
@@ -77,7 +81,6 @@ concurrency:
 jobs:
   build_image:
     runs-on: ${{ inputs.runner }}
-    #runs-on: ubuntu-24.04-arm
     permissions:
       contents: write
 
@@ -118,10 +121,8 @@ jobs:
           echo "whoami: $(whoami)"
           echo "docker images: $(docker images)"
           echo ""
-          echo "inputs.clean_le: ${{ inputs.clean_le }}"
           echo "inputs.debug: ${{ inputs.debug }}"
           echo "inputs.ephemeral: ${{ inputs.ephemeral }}"
-          echo "inputs.upload: ${{ inputs.upload }}"
 
       - name: Build LE in docker container
         run: |
@@ -150,32 +151,12 @@ jobs:
                   ${{ env.TARGETBUILDDIR }}/artifact/${{ env.TARGETBUILDDIR }}-${failedpkg}-$(echo ${failedlog} | sed 's#.*/##')
               done
 
-      - name: Prepare artifacts - no_ephemeral
-        if: inputs.ephemeral == 'no_ephemeral'
-        run: |
-          cd LibreELEC.tv
-          mkdir -p ${{ env.BASEDIR }}/build-root/${{ env.TARGETBUILDDIR }}/artifact
-          grep ^FAIL ${{ env.BASEDIR }}/build-root/${{ env.TARGETBUILDDIR }}/.threads/joblog | \
-            awk '{ print $5, $12 }' | tr ':' '_' | \
-              while read failedpkg failedlog; do
-                mv ${{ env.BASEDIR }}/${failedlog} \
-                  ${{ env.BASEDIR }}/build-root/${{ env.TARGETBUILDDIR }}/artifact/${{ env.TARGETBUILDDIR }}-${failedpkg}-$(echo ${failedlog} | sed 's#.*/##')
-              done
-
       - name: Upload failed artifacts - ephemeral
         if: inputs.ephemeral == 'ephemeral'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.group }}-failed
           path: LibreELEC.tv/${{ env.TARGETBUILDDIR }}/artifact/
-          if-no-files-found: ignore
-
-      - name: Upload failed artifacts - no_ephemeral
-        if: inputs.ephemeral == 'no_ephemeral'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.group }}-failed
-          path: ${{ env.BASEDIR }}/build-root/${{ env.TARGETBUILDDIR }}/artifact/
           if-no-files-found: ignore
 
       - name: Clean up - remove docker image tag
@@ -188,22 +169,22 @@ jobs:
           cd LibreELEC.tv
           ls -lah sources/mesa-host/
 
-      - name: upload x86_64 mesa:host
+      - name: upload host arch mesa:host
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           upload_url: ${{ inputs.upload_url }}
-          asset_path: LibreELEC.tv/sources/mesa-host/mesa-host-13.0-25.1.0-x86_64.tar
-          asset_name: mesa-host-13.0-25.1.0-x86_64.tar
+          asset_path: LibreELEC.tv/sources/mesa-host/mesa-host-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar
+          asset_name: mesa-host-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar
           asset_content_type: application/tar
 
-      - name: upload x86_64 mesa:host sha256
+      - name: upload host arch mesa:host sha256
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           upload_url: ${{ inputs.upload_url }}
-          asset_path: LibreELEC.tv/sources/mesa-host/mesa-host-13.0-25.1.0-x86_64.tar.sha256
-          asset_name: mesa-host-13.0-25.1.0-x86_64.tar.sha256
+          asset_path: LibreELEC.tv/sources/mesa-host/mesa-host-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar.sha256
+          asset_name: mesa-host-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar.sha256
           asset_content_type: text/plain

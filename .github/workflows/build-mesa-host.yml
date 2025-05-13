@@ -9,7 +9,7 @@ on:
         type: string
       target:
         description: "targets to build"
-        default: x86_64
+        default: all
         required: true
         type: choice
         options:
@@ -91,21 +91,21 @@ jobs:
       - id: should_run
         name: check if the release doesnt exist so as to create the release
         run: |
-          echo "should_run=${{ steps.check_run.outputs.release_doesnt_exists }}" >> $GITHUB_OUTPUT
+          echo "should_run=${{ steps.check_release.outputs.release_doesnt_exists }}" >> $GITHUB_OUTPUT
       - id: create_release
         name: release
-        if: ( steps.check_release.outputs.release_exists == 'false' )
+        if: ${{ steps.check_release.outputs.release_exists == 'false' }}
         uses: actions/create-release@v1
         with:
           draft: false
           prerelease: true
           release_name: "mesa host tools for LibreELEC-${{ steps.tool_version.outputs.osver }} with mesa-${{ steps.tool_version.outputs.mesa }}"
-          tag_name: simplify-${{ steps.tool_version.outputs.osver }}-${{ steps.tool_version.outputs.mesa }}
+          tag_name: ${{ steps.tool_version.outputs.osver }}-${{ steps.tool_version.outputs.mesa }}
           body_path: mesa-host/CHANGELOG.md
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: upload hash details artifact
-        if: ( steps.check_release.outputs.release_exists == 'false' )
+        if: ${{ steps.check_release.outputs.release_exists == 'false' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -138,7 +138,8 @@ jobs:
       arch: aarch64
       device: AMLGX
       targetbuilddir: build.LibreELEC-AMLGX.aarch64-13.0-devel
-      version: "13.0"
+      version: ${{ needs.check_build_tools.outputs.osver }}
+      mesa: ${{ needs.check_build_tools.outputs.mesa }}
     secrets: inherit
 
   # x86_64 (use Amlogic to do the build of mesa)
@@ -164,5 +165,6 @@ jobs:
       arch: x86_64
       device: Generic
       targetbuilddir: build.LibreELEC-Generic.x86_64-13.0-devel
-      version: "13.0"
+      version: ${{ needs.check_build_tools.outputs.osver }}
+      mesa: ${{ needs.check_build_tools.outputs.mesa }}
     secrets: inherit
