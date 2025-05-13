@@ -2,14 +2,6 @@ name: build-mesa-host
 on:
   workflow_dispatch:
     inputs:
-      le_periodic_version:
-        description: "Version and Perodic builds"
-        default: nightly
-        required: true
-        type: choice
-        options:
-          - nightly
-          - official
       gitref_to_build:
         description: "gitref tag or hash to build"
         default: mesa-host
@@ -26,10 +18,8 @@ on:
           - x86_64
 
 env:
-  clean_le: no_clean_le
   debug: debug
   ephemeral: ephemeral
-  upload: upload
 
 jobs:
   check_build_tools:
@@ -110,7 +100,7 @@ jobs:
           draft: false
           prerelease: true
           release_name: "mesa host tools for LibreELEC-${{ steps.tool_version.outputs.osver }} with mesa-${{ steps.tool_version.outputs.mesa }}"
-          tag_name: testrun-${{ steps.tool_version.outputs.osver }}-${{ steps.tool_version.outputs.mesa }}
+          tag_name: simplify-${{ steps.tool_version.outputs.osver }}-${{ steps.tool_version.outputs.mesa }}
           body_path: mesa-host/CHANGELOG.md
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -137,10 +127,8 @@ jobs:
         && ( github.event.inputs.target == 'all' || github.event.inputs.target == 'aarch64' || github.event_name == 'schedule' )
     uses: ./.github/workflows/yml-build-mesa-host.yml
     with:
-      clean_le: no_clean_le
       debug: debug
       ephemeral: ephemeral
-      upload: upload
       upload_url: ${{ needs.check_build_tools.outputs.upload_url }}
       buildcmd: "scripts/build_mt mesa:host"
       gitref: ${{ github.event.inputs.gitref_to_build || 'mesa-host' }}
@@ -149,10 +137,7 @@ jobs:
       arch: aarch64
       device: AMLGX
       targetbuilddir: build.LibreELEC-AMLGX.aarch64-13.0-devel
-      buildperiodic: ${{ github.event.inputs.le_periodic_version || 'nightly' }}
-      ccachecachesize: 10G
       version: "13.0"
-      file_extension: img.gz,tar
     secrets: inherit
 
   # x86_64 (use Amlogic to do the build of mesa)
@@ -167,10 +152,8 @@ jobs:
         && ( github.event.inputs.target == 'all' || github.event.inputs.target == 'x86_64' || github.event_name == 'schedule' )
     uses: ./.github/workflows/yml-build-mesa-host.yml
     with:
-      clean_le: no_clean_le
       debug: debug
       ephemeral: ephemeral
-      upload: upload
       upload_url: ${{ needs.check_build_tools.outputs.upload_url }}
       buildcmd: "scripts/build_mt mesa:host"
       gitref: ${{ github.event.inputs.gitref_to_build || 'mesa-host' }}
@@ -179,8 +162,5 @@ jobs:
       arch: x86_64
       device: Generic
       targetbuilddir: build.LibreELEC-Generic.x86_64-13.0-devel
-      buildperiodic: ${{ github.event.inputs.le_periodic_version || 'nightly' }}
-      ccachecachesize: 20G
       version: "13.0"
-      file_extension: img.gz,ova,tar
     secrets: inherit

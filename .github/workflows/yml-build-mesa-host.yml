@@ -2,12 +2,6 @@ name: yml-uses-make-image-LE13
 on:
   workflow_call:
     inputs:
-      clean_le:
-        # This setting is only used when builds are NOT ephemeral
-        description: "Should the workflow clean the /build-root"
-        #default: no_clean_le
-        required: true
-        type: string
       debug:
         description: "Provide debug output from GHA run"
         #default: no_debug
@@ -16,11 +10,6 @@ on:
       ephemeral:
         description: "Target and build-root are ephemeral"
         #default: ephemeral
-        required: true
-        type: string
-      upload:
-        description: "Upload the images to the release server"
-        #default: no_upload
         required: true
         type: string
       upload_url:
@@ -62,25 +51,10 @@ on:
         #default: ""
         required: true
         type: string
-      buildperiodic:
-        description: "BUILD_PERIODIC"
-        #default: nightly
-        required: true
-        type: string
-      ccachecachesize:
-        description: "CCACHE_CACHE_SIZE"
-        #default: 10G
-        required: true
-        type: string
       version:
         description: "version code used in TARGETBUILDDIR"
         default: ""
         required: false
-        type: string
-      file_extension:
-        description: "file extensions to copy to webserver"
-        #default: img.gz,img.gz.sha256,ova,ova.sha256,tar,tar.sha256
-        required: true
         type: string
 
 env:
@@ -90,7 +64,6 @@ env:
   ARCH: ${{ inputs.arch }}
   DEVICE: ${{ inputs.device }}
   TARGETBUILDDIR: ${{ inputs.targetbuilddir }}
-  BUILD_PERIODIC: ${{ inputs.buildperiodic }}
   LE_DISTRO_VERSION: ${{ inputs.version }}
 
 concurrency:
@@ -118,27 +91,11 @@ jobs:
         run: |
           cd LibreELEC.tv
           sed -i -e "s/RUN useradd docker/RUN useradd docker -o -u $(id -u)/" tools/docker/noble/Dockerfile
-          sed -i -e 's/^CCACHE_CACHE_SIZE=.*/CCACHE_CACHE_SIZE="${{ inputs.ccachecachesize }}"/' config/options
-
-      - name: Build official release
-        if: inputs.buildperiodic == 'official'
-        run: |
-          cd LibreELEC.tv
-          sed -i -e 's/LIBREELEC_VERSION="devel"/LIBREELEC_VERSION="${{ inputs.gitref }}"/' distributions/LibreELEC/version
-          echo "OFFICIAL=\"yes\"" >> distributions/LibreELEC/version
-          echo "building official ${{ inputs.gitref }}"
-          if [ "${{ inputs.project }}" = "RPi" ]; then echo "NOOBS=\"noobs\"" >> $GITHUB_ENV; fi
 
       - name: Create docker image for build - tools/docker/noble
         run: |
           cd LibreELEC.tv
           docker build --pull -t gh-${{ github.run_id }} tools/docker/noble
-
-      - name: Prepare the LibreELEC.tv directory - setup /sources
-        run: |
-          cd LibreELEC.tv
-          # create links that will be used from within the docker containers
-          #[ ! -h sources ] && ln -s /sources .
 
       - name: Prepare the LibreELEC.tv directory - do not leave files behind
         if: inputs.ephemeral == 'ephemeral'
@@ -147,15 +104,6 @@ jobs:
           # set the build_dir=/build
           echo "build_dir=/build" >> $GITHUB_ENV
           echo "CCACHE_DISABLE=1" >> $GITHUB_ENV
-
-      - name: Prepare the LibreELEC.tv directory - use /build-root and /target
-        if: inputs.ephemeral == 'no_ephemeral'
-        run: |
-          cd LibreELEC.tv
-          # create links that will be used from within the docker containers
-          #[ ! -h target ] && ln -s /target .
-          # set the build_dir=/build-root - for NON ephemeral builds
-          #echo "build_dir=/build-root" >> $GITHUB_ENV
 
       - name: Display environment
         if: inputs.debug == 'debug'
@@ -171,12 +119,6 @@ jobs:
           echo "inputs.ephemeral: ${{ inputs.ephemeral }}"
           echo "inputs.upload: ${{ inputs.upload }}"
 
-      - name: Clean target_build_dir in /build-root - make clean DEVICE
-        if: inputs.clean_le == 'clean_le'
-        run: |
-          #rm -rf ${{ env.BASEDIR }}/build-root/${{ env.TARGETBUILDDIR }}/.stamps
-          #rm -rf ${{ env.BASEDIR }}/build-root/${{ env.TARGETBUILDDIR }}/*
-
       - name: Build LE in docker container
         run: |
           cd LibreELEC.tv
@@ -187,7 +129,7 @@ jobs:
                           -e DEVICE=${{ env.DEVICE }} \
                           -e ONELOG=no -e LOGCOMBINE=fail \
                           -e BUILD_DIR=${{ env.build_dir }} \
-                          -e BUILD_PERIODIC=${{ env.BUILD_PERIODIC }} \
+                          -e BUILD_PERIODIC=nightly \
                           -e CCACHE_DISABLE=${{ env.CCACHE_DISABLE }} \
                           gh-${{ github.run_id }} ${{ inputs.buildcmd }} ${{ env.NOOBS }}
         continue-on-error: true
@@ -261,43 +203,3 @@ jobs:
           asset_path: LibreELEC.tv/sources/mesa-host/mesa-host-13.0-25.1.0-x86_64.tar.sha256
           asset_name: mesa-host-13.0-25.1.0-x86_64.tar.sha256
           asset_content_type: text/plain
-
-      - name: Upload OFFICIAL Release image
-        if: (inputs.buildperiodic == 'official') && (inputs.upload == 'upload')
-        run: |
-          cd LibreELEC.tv
-          if [[ "${{ env.PROJECT }}" == "Generic" ]]; then
-            scp -P ${{ secrets.RELEASES_HOST_PORT }} target/*.{ova,ova.sha256,tar,tar.sha256,img.gz,img.gz.sha256} \
-              ${{ secrets.RELEASES_USERNAME }}@${{ secrets.RELEASES_HOST }}:${{ secrets.RELEASES_UPLOAD_PATH }}
-          else
-            scp -P ${{ secrets.RELEASES_HOST_PORT }} target/*.{tar,tar.sha256,img.gz,img.gz.sha256} \
-              ${{ secrets.RELEASES_USERNAME }}@${{ secrets.RELEASES_HOST }}:${{ secrets.RELEASES_UPLOAD_PATH }}
-          fi
-
-      - name: Upload nightly image
-        env:
-          NIGHTLY_HOST: ${{ secrets.NIGHTLY_HOST }}
-        if: (inputs.buildperiodic != 'official') && (inputs.upload == 'upload') && (env.NIGHTLY_HOST != null)
-        run: |
-          cd LibreELEC.tv
-          if [[ "${{ env.PROJECT }}" == "Generic" || "${{ env.PROJECT }}" == "RPi" ]]; then
-            if [[ "${{ env.PROJECT }}" == "Generic" && "${{ env.LE_DISTRO_VERSION }}" == "10.0" && -z "${{ env.DEVICE }}" ]]; then
-              MY_DEVICE="Generic"
-            else
-              MY_DEVICE="${{ env.DEVICE }}"
-            fi
-            ssh ${{ secrets.NIGHTLY_HOST_USERNAME }}@${{ secrets.NIGHTLY_HOST }} \
-              -p ${{ secrets.NIGHTLY_HOST_PORT }} \
-              "mkdir -p ${{ secrets.NIGHTLY_UPLOAD_PATH }}/${{ env.LE_DISTRO_VERSION }}/${{ env.PROJECT }}/${MY_DEVICE}"
-            scp -P ${{ secrets.NIGHTLY_HOST_PORT }} target/*.{img.gz,img.gz.sha256} \
-              ${{ secrets.NIGHTLY_HOST_USERNAME }}@${{ secrets.NIGHTLY_HOST }}:${{ secrets.NIGHTLY_UPLOAD_PATH }}/${{ env.LE_DISTRO_VERSION }}/${{ env.PROJECT }}/${MY_DEVICE}/
-          else
-            for f in target/*.img.gz; do
-              uboot_device="$(echo "${f##*/}" | sed -rn 's/(LibreELEC-.*.(arm|aarch64|x86_64)-[0-9.]+-nightly-[0-9.]{8}-[[0-9a-f]{7})(-)(.*)(.img.gz*)/\4/p')"
-              ssh ${{ secrets.NIGHTLY_HOST_USERNAME }}@${{ secrets.NIGHTLY_HOST }} \
-                -p ${{ secrets.NIGHTLY_HOST_PORT }} \
-                "mkdir -p ${{ secrets.NIGHTLY_UPLOAD_PATH }}/${{ env.LE_DISTRO_VERSION }}/${{ env.PROJECT }}/${uboot_device}"
-              scp -P ${{ secrets.NIGHTLY_HOST_PORT }} ${f} ${f}.sha256 \
-                ${{ secrets.NIGHTLY_HOST_USERNAME }}@${{ secrets.NIGHTLY_HOST }}:${{ secrets.NIGHTLY_UPLOAD_PATH }}/${{ env.LE_DISTRO_VERSION }}/${{ env.PROJECT }}/${uboot_device}/
-            done
-          fi
