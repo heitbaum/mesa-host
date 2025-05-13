@@ -240,10 +240,7 @@ jobs:
       - name: List files in target
         run: |
           cd LibreELEC.tv
-          mkdir -p sources/mesa-host/ # temp
           ls -lah sources/mesa-host/
-          tar cf sources/mesa-host/mesa-host-13.0-25.1.0-x86_64.tar Makefile
-          cat Makefile > sources/mesa-host/mesa-host-13.0-25.1.0-x86_64.tar.sha256
 
       - name: upload x86_64 mesa:host
         uses: actions/upload-release-asset@v1

@@ -110,7 +110,7 @@ jobs:
           draft: false
           prerelease: true
           release_name: "mesa host tools for LibreELEC-${{ steps.tool_version.outputs.osver }} with mesa-${{ steps.tool_version.outputs.mesa }}"
-          tag_name: dummy-${{ steps.tool_version.outputs.osver }}-${{ steps.tool_version.outputs.mesa }}
+          tag_name: testrun-${{ steps.tool_version.outputs.osver }}-${{ steps.tool_version.outputs.mesa }}
           body_path: mesa-host/CHANGELOG.md
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -142,7 +142,7 @@ jobs:
       ephemeral: ephemeral
       upload: upload
       upload_url: ${{ needs.check_build_tools.outputs.upload_url }}
-      buildcmd: "scripts/build_mt 1mesa:host"
+      buildcmd: "scripts/build_mt mesa:host"
       gitref: ${{ github.event.inputs.gitref_to_build || 'mesa-host' }}
       group: aarch64-mesa
       project: Amlogic
@@ -172,7 +172,7 @@ jobs:
       ephemeral: ephemeral
       upload: upload
       upload_url: ${{ needs.check_build_tools.outputs.upload_url }}
-      buildcmd: "scripts/build_mt 1mesa:host"
+      buildcmd: "scripts/build_mt mesa:host"
       gitref: ${{ github.event.inputs.gitref_to_build || 'mesa-host' }}
       group: x86_64-mesa
       project: Generic
