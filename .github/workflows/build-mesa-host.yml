@@ -56,13 +56,13 @@ jobs:
           hash=$(git rev-parse HEAD)
           echo "hash=${hash}" >> $GITHUB_OUTPUT
           echo ${hash}
-          echo "mesa:host tools build - ${hash}" > gh-build-log.txt
-          echo "=====================" >> gh-build-log.txt
+          echo "mesa:host tools build - ${hash}" > build-log.txt
+          echo "=====================" >> build-log.txt
       - id: tool_version
         name: get versions of LibreELEC and mesa
         run: |
           cd LibreELEC.tv
-          tools/viewplan mesa:host >> gh-build-log.txt
+          tools/viewplan mesa:host >> build-log.txt
           . config/options
           echo "mesa=$(get_pkg_version mesa)" >> $GITHUB_OUTPUT
           echo "osver=${OS_VERSION}" >> $GITHUB_OUTPUT
@@ -98,25 +98,16 @@ jobs:
       - id: create_release
         name: release
         if: ${{ steps.check_release.outputs.release_exists == 'false' }}
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           draft: false
           prerelease: true
-          release_name: "mesa host tools for LibreELEC-${{ steps.tool_version.outputs.osver }} with mesa-${{ steps.tool_version.outputs.mesa }}"
+          name: "reusable mesa:host tools for LibreELEC-${{ steps.tool_version.outputs.osver }} with mesa-${{ steps.tool_version.outputs.mesa }}"
           tag_name: ${{ steps.tool_version.outputs.osver }}-${{ steps.tool_version.outputs.mesa }}
           body_path: mesa-host/CHANGELOG.md
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-      - name: upload hash details artifact
-        if: ${{ steps.check_release.outputs.release_exists == 'false' }}
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: LibreELEC.tv/gh-build-log.txt
-          asset_name: build-log.txt
-          asset_content_type: text/plain
+          fail_on_unmatched_files: true
+          files: |
+            LibreELEC.tv/build-log.txt
 
   # aarch64 (use Amlogic to do the build of mesa)
   aarch64:
