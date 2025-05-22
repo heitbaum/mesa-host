@@ -72,7 +72,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd mesa-host
-          RELEASE_TAG=${{ steps.tool_version.outputs.osver }}-${{ steps.tool_version.outputs.mesa }}
+          RELEASE_TAG=t${{ steps.tool_version.outputs.osver }}-${{ steps.tool_version.outputs.mesa }}
           if [ $(git tag -l "${RELEASE_TAG}") ]; then
             echo "Tag ${RELEASE_TAG} exists"
             set +e
@@ -103,7 +103,7 @@ jobs:
           draft: false
           prerelease: true
           name: "reusable mesa:host tools for LibreELEC-${{ steps.tool_version.outputs.osver }} with mesa-${{ steps.tool_version.outputs.mesa }}"
-          tag_name: ${{ steps.tool_version.outputs.osver }}-${{ steps.tool_version.outputs.mesa }}
+          tag_name: t${{ steps.tool_version.outputs.osver }}-${{ steps.tool_version.outputs.mesa }}
           body_path: mesa-host/CHANGELOG.md
           fail_on_unmatched_files: true
           files: |
