@@ -170,22 +170,18 @@ jobs:
           cd LibreELEC.tv
           ls -lah target/
 
-      - name: upload host arch mesa:host
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+      - name: upload reusable mesa:host tools
+        uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ inputs.upload_url }}
           asset_path: LibreELEC.tv/target/mesa-reusable-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar
-          asset_name: mesa-reusable-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar
           asset_content_type: application/tar
+          github_token: ${{ github.token }}
 
-      - name: upload host arch mesa:host sha256
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+      - name: upload reusable mesa:host tools sha256
+        uses: shogo82148/actions-upload-release-asset@v1
         with:
           upload_url: ${{ inputs.upload_url }}
           asset_path: LibreELEC.tv/target/mesa-reusable-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar.sha256
-          asset_name: mesa-reusable-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar.sha256
           asset_content_type: text/plain
+          github_token: ${{ github.token }}
