@@ -98,6 +98,7 @@ jobs:
         run: |
           cd LibreELEC.tv
           sed -i -e "s/RUN useradd docker/RUN useradd docker -o -u $(id -u)/" tools/docker/noble/Dockerfile
+          sed -i -e 's/BUILD_REUSABLE=""/BUILD_REUSABLE="mesa:host"/' distributions/LibreELEC/options
 
       - name: Create docker image for build - tools/docker/noble
         run: |
@@ -167,7 +168,7 @@ jobs:
       - name: List files in target
         run: |
           cd LibreELEC.tv
-          ls -lah sources/mesa-reusable/
+          ls -lah target/
 
       - name: upload host arch mesa:host
         uses: actions/upload-release-asset@v1
@@ -175,7 +176,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           upload_url: ${{ inputs.upload_url }}
-          asset_path: LibreELEC.tv/sources/mesa-reusable/mesa-reusable-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar
+          asset_path: LibreELEC.tv/target/mesa-reusable-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar
           asset_name: mesa-reusable-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar
           asset_content_type: application/tar
 
@@ -185,6 +186,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           upload_url: ${{ inputs.upload_url }}
-          asset_path: LibreELEC.tv/sources/mesa-reusable/mesa-reusable-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar.sha256
+          asset_path: LibreELEC.tv/target/mesa-reusable-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar.sha256
           asset_name: mesa-reusable-${{ inputs.version }}-${{ inputs.mesa }}-${{ inputs.arch }}.tar.sha256
           asset_content_type: text/plain
